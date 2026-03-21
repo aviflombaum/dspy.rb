@@ -58,10 +58,23 @@ module DSPy
         end
       end
 
+      # Check if messages contain documents
+      def contains_documents?(messages)
+        messages.any? do |msg|
+          content = msg[:content] || msg.content
+          content.is_a?(Array) && content.any? { |item| item[:type] == 'document' }
+        end
+      end
+
+      # Check if messages contain any multimodal content (images or documents)
+      def contains_multimodal?(messages)
+        contains_images?(messages) || contains_documents?(messages)
+      end
+
       # Format multimodal messages for a specific provider
       # @param messages [Array<Hash>] Array of message hashes
-      # @param provider_name [String] Provider name for image validation and formatting
-      # @return [Array<Hash>] Messages with images formatted for the provider
+      # @param provider_name [String] Provider name for image/document validation and formatting
+      # @return [Array<Hash>] Messages with images/documents formatted for the provider
       def format_multimodal_messages(messages, provider_name)
         messages.map do |msg|
           if msg[:content].is_a?(Array)
@@ -71,6 +84,8 @@ module DSPy
                 { type: 'text', text: item[:text] }
               when 'image'
                 format_image_for_provider(item[:image], provider_name)
+              when 'document'
+                format_document_for_provider(item[:document], provider_name)
               else
                 item
               end
@@ -92,8 +107,21 @@ module DSPy
         if image.respond_to?(format_method)
           image.send(format_method)
         else
-          # For providers without specific format methods, return the item as-is
           { type: 'image', image: image }
+        end
+      end
+
+      # Format a document for a specific provider
+      # @param document [DSPy::Document] The document to format
+      # @param provider_name [String] Provider name (anthropic, gemini, etc.)
+      # @return [Hash] Provider-specific document format
+      def format_document_for_provider(document, provider_name)
+        document.validate_for_provider!(provider_name)
+        format_method = "to_#{provider_name}_format"
+        if document.respond_to?(format_method)
+          document.send(format_method)
+        else
+          { type: 'document', document: document }
         end
       end
     end

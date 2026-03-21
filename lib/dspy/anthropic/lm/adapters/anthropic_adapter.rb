@@ -2,6 +2,7 @@
 
 require 'anthropic'
 require 'dspy/lm/vision_models'
+require 'dspy/lm/document_models'
 require 'dspy/lm/adapter'
 
 require 'dspy/anthropic/guardrails'
@@ -25,7 +26,15 @@ module DSPy
             # Validate vision support if images are present
             if contains_images?(normalized_messages)
               DSPy::LM::VisionModels.validate_vision_support!('anthropic', model)
-              # Convert messages to Anthropic format with proper image handling
+            end
+
+            # Validate document support if documents are present
+            if contains_documents?(normalized_messages)
+              DSPy::LM::DocumentModels.validate_document_support!('anthropic', model)
+            end
+
+            # Format multimodal messages (images and/or documents) for Anthropic
+            if contains_multimodal?(normalized_messages)
               normalized_messages = format_multimodal_messages(normalized_messages, 'anthropic')
             end
 
@@ -39,8 +48,8 @@ module DSPy
             # Check if this is a tool use request
             has_tools = extra_params.key?(:tools) && !extra_params[:tools].empty?
 
-            # Apply JSON prefilling if needed for better Claude JSON compliance (but not for tool use or Beta API)
-            unless has_tools || output_format || contains_images?(normalized_messages)
+            # Apply JSON prefilling if needed for better Claude JSON compliance (but not for tool use, Beta API, or multimodal)
+            unless has_tools || output_format || contains_multimodal?(normalized_messages)
               user_messages = prepare_messages_for_json(user_messages, system_message)
             end
 
@@ -151,6 +160,8 @@ module DSPy
 
               if error_msg.include?('Could not process image')
                 raise DSPy::LM::AdapterError, "Image processing failed: #{error_msg}. Ensure your image is a valid PNG, JPEG, GIF, or WebP format, properly base64-encoded, and under 5MB."
+              elsif error_msg.include?('document')
+                raise DSPy::LM::AdapterError, "Document processing failed: #{error_msg}. Ensure your document is a valid PDF (under 32MB, up to 100 pages) or supported text format."
               elsif error_msg.include?('image')
                 raise DSPy::LM::AdapterError, "Image error: #{error_msg}. Anthropic requires base64-encoded images (URLs are not supported)."
               elsif error_msg.include?('rate')

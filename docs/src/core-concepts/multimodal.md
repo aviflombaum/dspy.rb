@@ -1,17 +1,17 @@
 ---
 layout: docs
 title: Multimodal Support
-description: Process images and text with DSPy.rb's multimodal capabilities. Support
-  for OpenAI and Anthropic vision models with type-safe image analysis and structured
-  outputs.
+description: Process images, documents, and text with DSPy.rb's multimodal capabilities.
+  Support for OpenAI and Anthropic vision models with type-safe image analysis, document
+  extraction, and structured outputs.
 nav_order: 7
 parent: Core Concepts
 date: 2025-08-13 00:00:00 +0000
-last_modified_at: 2025-08-26 00:00:00 +0000
+last_modified_at: 2026-03-21 00:00:00 +0000
 ---
 # Multimodal Support
 
-DSPy.rb supports multimodal inputs, allowing you to work with both text and images in your AI applications. This feature enables powerful use cases like image analysis, visual question answering, and object detection.
+DSPy.rb supports multimodal inputs, allowing you to work with text, images, and documents in your AI applications. This feature enables powerful use cases like image analysis, visual question answering, object detection, and document data extraction.
 
 ## Vision-Capable Models
 
@@ -298,6 +298,106 @@ end
 
 puts response
 ```
+
+## Working with Documents
+
+DSPy.rb supports native document input for providers that offer it (currently Anthropic and Gemini). This allows you to send PDFs and other documents directly to the LLM without manual text extraction.
+
+### Creating Documents
+
+```ruby
+# From URL (Anthropic — uses signed URLs for private documents)
+document = DSPy::Document.new(
+  url: 'https://example.com/report.pdf',
+  content_type: 'application/pdf'
+)
+
+# From base64 data
+document = DSPy::Document.new(
+  base64: Base64.strict_encode64(File.read('report.pdf')),
+  content_type: 'application/pdf'
+)
+
+# From file path
+document = DSPy::Document.new(
+  path: '/path/to/report.pdf',
+  content_type: 'application/pdf'
+)
+
+# With prompt caching (Anthropic)
+document = DSPy::Document.new(
+  url: signed_url,
+  content_type: 'application/pdf',
+  cache: true
+)
+```
+
+### Supported Document Formats
+- PDF (`application/pdf`)
+- Plain text (`text/plain`)
+- CSV (`text/csv`)
+- HTML (`text/html`)
+- Markdown (`text/markdown`)
+
+### Size Limits
+- Maximum size: 32MB
+- PDFs: up to 100 pages (Anthropic)
+
+### Document Analysis with Structured Output
+
+```ruby
+class ExtractKpis < DSPy::Signature
+  description "Extract structured KPIs from an investor update document"
+
+  class Kpi < T::Struct
+    const :name, String, description: "KPI name"
+    const :value, Float, description: "Numeric value"
+    const :unit, String, description: "One of: usd, percent, count"
+  end
+
+  input do
+    const :document, DSPy::Document, description: "The investor update PDF"
+    const :company_name, String, description: "Company name for context"
+  end
+
+  output do
+    const :kpis, T::Array[Kpi]
+    const :period, String
+  end
+end
+
+# Usage
+document = DSPy::Document.new(url: signed_url, content_type: 'application/pdf', cache: true)
+extractor = DSPy::Predict.new(ExtractKpis)
+result = extractor.call(document: document, company_name: "Acme Corp")
+
+result.kpis.each { |kpi| puts "#{kpi.name}: #{kpi.value} #{kpi.unit}" }
+```
+
+### Using Documents with raw_chat
+
+```ruby
+lm = DSPy::LM.new('anthropic/claude-sonnet-4-20250514', api_key: ENV['ANTHROPIC_API_KEY'])
+
+document = DSPy::Document.new(
+  url: 'https://example.com/contract.pdf',
+  content_type: 'application/pdf'
+)
+
+response = lm.raw_chat do |messages|
+  messages.user_with_document('Summarize the key terms of this contract.', document)
+end
+
+puts response
+```
+
+### Document Provider Support
+
+| Provider  | PDF | Text | URL Source | Base64 Source | Cache Control |
+|-----------|-----|------|------------|---------------|---------------|
+| Anthropic | Yes | Yes  | Yes        | Yes           | Yes           |
+| Gemini    | Yes | Yes  | No         | Yes           | No            |
+| OpenAI    | No  | No   | No         | No            | No            |
 
 ## Platform Differences
 

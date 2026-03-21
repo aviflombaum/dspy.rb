@@ -132,6 +132,8 @@ module DSPy
         required = []
 
         @input_field_descriptors&.each do |name, descriptor|
+          next if attachment_type?(descriptor.type)
+
           schema = DSPy::TypeSystem::SorbetJsonSchema.type_to_json_schema(descriptor.type)
           schema[:description] = descriptor.description if descriptor.description
           properties[name] = schema
@@ -205,6 +207,16 @@ module DSPy
       sig { returns(T.nilable(T.class_of(T::Struct))) }
       def output_schema
         @output_struct_class
+      end
+
+      private
+
+      sig { params(type: T.untyped).returns(T::Boolean) }
+      def attachment_type?(type)
+        return false unless type.is_a?(Class)
+        !!(type <= DSPy::Image || type <= DSPy::Document)
+      rescue NameError
+        false
       end
     end
   end

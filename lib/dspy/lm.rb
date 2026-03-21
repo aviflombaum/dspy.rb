@@ -144,6 +144,9 @@ module DSPy
     def build_messages(inference_module, input_values)
       messages = []
 
+      # Partition input values into text inputs and attachments
+      text_inputs, attachments = partition_inputs(input_values)
+
       # Determine if structured outputs will be used and wrap prompt if so
       base_prompt = inference_module.prompt
       prompt = if will_use_structured_outputs?(inference_module.signature_class, data_format: base_prompt.data_format)
@@ -161,14 +164,49 @@ module DSPy
         )
       end
 
-      # Add user message
-      user_prompt = prompt.render_user_prompt(input_values)
-      messages << Message.new(
-        role: Message::Role::User,
-        content: user_prompt
-      )
+      # Render user prompt from text inputs only (attachments are sent as content blocks)
+      user_prompt = prompt.render_user_prompt(text_inputs)
+
+      # Build user message — multimodal if attachments present
+      if attachments.any?
+        content_parts = attachments.map do |attachment|
+          case attachment
+          when DSPy::Document
+            { type: 'document', document: attachment }
+          when DSPy::Image
+            { type: 'image', image: attachment }
+          end
+        end
+        content_parts << { type: 'text', text: user_prompt }
+
+        messages << Message.new(
+          role: Message::Role::User,
+          content: content_parts
+        )
+      else
+        messages << Message.new(
+          role: Message::Role::User,
+          content: user_prompt
+        )
+      end
 
       messages
+    end
+
+    def partition_inputs(input_values)
+      text_inputs = {}
+      attachments = []
+
+      input_values.each do |key, value|
+        case value
+        when DSPy::Image, DSPy::Document
+          attachments << value
+        else
+          text_inputs[key] = value
+        end
+      end
+
+      [text_inputs, attachments]
     end
 
     def will_use_structured_outputs?(signature_class, data_format: nil)

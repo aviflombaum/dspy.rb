@@ -4,6 +4,7 @@ require 'uri'
 require 'ruby_llm'
 require 'dspy/lm/adapter'
 require 'dspy/lm/vision_models'
+require 'dspy/lm/document_models'
 
 require 'dspy/ruby_llm/guardrails'
 DSPy::RubyLLM::Guardrails.ensure_ruby_llm_installed!
@@ -52,6 +53,10 @@ module DSPy
             # Validate vision support if images are present
             if contains_images?(normalized_messages)
               validate_vision_support!
+            end
+
+            # Format multimodal messages (images and/or documents) for provider
+            if contains_multimodal?(normalized_messages)
               normalized_messages = format_multimodal_messages(normalized_messages, provider)
             end
 
@@ -246,14 +251,20 @@ module DSPy
                 when 'text'
                   text_parts << item[:text]
                 when 'image'
-                  # Extract image URL or path
                   image = item[:image]
-                  if image.respond_to?(:url)
+                  if image.respond_to?(:url) && image.url
                     attachments << image.url
-                  elsif image.respond_to?(:path)
+                  elsif image.respond_to?(:path) && image.path
                     attachments << image.path
                   elsif item[:image_url]
                     attachments << item[:image_url][:url]
+                  end
+                when 'document'
+                  document = item[:document]
+                  if document.respond_to?(:url) && document.url
+                    attachments << document.url
+                  elsif document.respond_to?(:path) && document.path
+                    attachments << document.path
                   end
                 end
               end
