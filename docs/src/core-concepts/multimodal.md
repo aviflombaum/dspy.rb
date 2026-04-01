@@ -1,17 +1,17 @@
 ---
 layout: docs
 title: Multimodal Support
-description: Process images and text with DSPy.rb's multimodal capabilities. Support
-  for OpenAI and Anthropic vision models with type-safe image analysis and structured
-  outputs.
+description: Process images, PDFs, and text with DSPy.rb's multimodal capabilities.
+  Support for OpenAI, Anthropic, and Gemini models with type-safe image and document
+  analysis and structured outputs.
 nav_order: 7
 parent: Core Concepts
 date: 2025-08-13 00:00:00 +0000
-last_modified_at: 2025-08-26 00:00:00 +0000
+last_modified_at: 2026-04-01 00:00:00 +0000
 ---
 # Multimodal Support
 
-DSPy.rb supports multimodal inputs, allowing you to work with both text and images in your AI applications. This feature enables powerful use cases like image analysis, visual question answering, and object detection.
+DSPy.rb supports multimodal inputs, allowing you to work with text, images, and documents (PDFs) in your AI applications. This feature enables powerful use cases like image analysis, visual question answering, document extraction, and object detection.
 
 ## Vision-Capable Models
 
@@ -299,6 +299,100 @@ end
 puts response
 ```
 
+## Working with Documents (PDFs)
+
+DSPy.rb supports PDF documents as native multimodal inputs via `DSPy::Document`. Documents work through both `raw_chat` and `Predict` signatures — the LLM sees the actual PDF, not a text extraction.
+
+### Creating Documents
+
+```ruby
+# From URL (Anthropic only)
+doc = DSPy::Document.new(
+  url: 'https://example.com/report.pdf'
+)
+
+# From base64 data (all providers)
+doc = DSPy::Document.new(
+  base64: Base64.strict_encode64(File.read('report.pdf')),
+  content_type: 'application/pdf'
+)
+
+# From byte array (all providers)
+File.open('report.pdf', 'rb') do |file|
+  doc = DSPy::Document.new(
+    data: file.read.bytes,
+    content_type: 'application/pdf'
+  )
+end
+```
+
+### Document Analysis via raw_chat
+
+```ruby
+lm = DSPy::LM.new('anthropic/claude-sonnet-4-20250514', api_key: ENV['ANTHROPIC_API_KEY'])
+doc = DSPy::Document.new(url: 'https://example.com/quarterly-report.pdf')
+
+response = lm.raw_chat do |messages|
+  messages.system("You are a financial analyst.")
+  messages.user_with_document("Summarize the key findings in this report.", doc)
+end
+
+puts response
+```
+
+### Document Analysis via Predict
+
+Documents work as typed inputs in signatures. The `Predict` pipeline automatically detects `DSPy::Document` inputs and sends them as native attachments instead of serializing them to text:
+
+```ruby
+class InvestorUpdateExtractor < DSPy::Signature
+  description "Extract KPIs and metrics from investor update documents"
+
+  input do
+    const :document, DSPy::Document, description: "The investor update PDF"
+    const :company_name, String, description: "Company name for context"
+  end
+
+  output do
+    const :revenue, String, description: "Revenue figure"
+    const :growth, String, description: "Growth rate"
+    const :summary, String, description: "Executive summary"
+  end
+end
+
+extractor = DSPy::Predict.new(InvestorUpdateExtractor)
+doc = DSPy::Document.new(url: "https://r2.example.com/updates/q4-2025.pdf")
+result = extractor.call(document: doc, company_name: "Acme Corp")
+
+puts result.revenue   # => "$1.2M"
+puts result.growth    # => "15% YoY"
+puts result.summary   # => "Strong Q4 with..."
+```
+
+### Multiple Documents
+
+```ruby
+response = lm.raw_chat do |messages|
+  messages.user_with_documents(
+    'Compare these two quarterly reports.',
+    [doc_q3, doc_q4]
+  )
+end
+```
+
+### Document Provider Support
+
+| Feature | Anthropic | OpenAI | Gemini |
+|---------|-----------|--------|--------|
+| PDF support | Yes | Yes | Yes |
+| URL source | Yes | No | No |
+| Base64 source | Yes | Yes | Yes |
+| Max size | 32MB | 32MB | 32MB |
+| Max pages | 100 | 100 | — |
+
+### Supported Formats
+- PDF (`application/pdf`)
+
 ## Platform Differences
 
 ### OpenAI
@@ -407,11 +501,18 @@ puts "Tokens used: #{response.usage.total_tokens}"
 
 ## Limitations
 
+### Images
 - **File Types**: Only JPEG, PNG, GIF, and WebP supported
 - **Size**: Maximum 5MB per image
 - **Medical Images**: Not suitable for medical diagnosis
 - **Text Recognition**: May struggle with small or rotated text
 - **Spatial Reasoning**: Limited precision for exact measurements
+
+### Documents
+- **File Types**: PDF only (more formats may be added later)
+- **Size**: Maximum 32MB per document
+- **URL Support**: Only Anthropic supports document URLs; OpenAI and Gemini require base64
+- **No Auto-Fetching**: For providers that don't support URLs, you must provide base64 data directly
 
 ## Examples
 
