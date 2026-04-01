@@ -59,20 +59,22 @@ module DSPy
               { type: 'text', text: item[:text] }
             when 'image'
               item[:image].to_openai_format
+            when 'document'
+              item[:document].to_openai_format
             else
               item
             end
           end
         end
-        
+
         formatted[:name] = name if name
         formatted
       end
-      
+
       sig { returns(T::Hash[Symbol, T.untyped]) }
       def to_anthropic_format
         formatted = { role: role.serialize }
-        
+
         if content.is_a?(String)
           formatted[:content] = content
         else
@@ -83,6 +85,8 @@ module DSPy
               { type: 'text', text: item[:text] }
             when 'image'
               item[:image].to_anthropic_format
+            when 'document'
+              item[:document].to_anthropic_format
             else
               item
             end

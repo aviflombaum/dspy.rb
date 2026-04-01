@@ -161,14 +161,42 @@ module DSPy
         )
       end
 
-      # Add user message
-      user_prompt = prompt.render_user_prompt(input_values)
-      messages << Message.new(
-        role: Message::Role::User,
-        content: user_prompt
-      )
+      # Separate media inputs from text inputs
+      media_inputs, text_inputs = partition_media_inputs(input_values)
+
+      # Render user prompt with text-only inputs
+      user_prompt = prompt.render_user_prompt(text_inputs)
+
+      if media_inputs.any?
+        # Build multimodal content array
+        content_array = [{ type: 'text', text: user_prompt }]
+        media_inputs.each do |_key, value|
+          case value
+          when DSPy::Image
+            content_array << { type: 'image', image: value }
+          when DSPy::Document
+            content_array << { type: 'document', document: value }
+          end
+        end
+        messages << Message.new(role: Message::Role::User, content: content_array)
+      else
+        messages << Message.new(role: Message::Role::User, content: user_prompt)
+      end
 
       messages
+    end
+
+    def partition_media_inputs(input_values)
+      media = {}
+      text = {}
+      input_values.each do |key, value|
+        if value.is_a?(DSPy::Image) || value.is_a?(DSPy::Document)
+          media[key] = value
+        else
+          text[key] = value
+        end
+      end
+      [media, text]
     end
 
     def will_use_structured_outputs?(signature_class, data_format: nil)

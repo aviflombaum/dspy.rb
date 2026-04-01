@@ -52,6 +52,10 @@ module DSPy
             # Validate vision support if images are present
             if contains_images?(normalized_messages)
               validate_vision_support!
+            end
+
+            # Format multimodal messages (images and/or documents) for the provider
+            if contains_media?(normalized_messages)
               normalized_messages = format_multimodal_messages(normalized_messages, provider)
             end
 
@@ -254,6 +258,11 @@ module DSPy
                     attachments << image.path
                   elsif item[:image_url]
                     attachments << item[:image_url][:url]
+                  end
+                when 'document'
+                  document = item[:document]
+                  if document.respond_to?(:url)
+                    attachments << document.url
                   end
                 end
               end

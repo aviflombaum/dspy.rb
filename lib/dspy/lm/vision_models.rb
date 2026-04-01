@@ -23,7 +23,9 @@ module DSPy
         'claude-3-haiku-20240307',
         'claude-3-5-sonnet-20241022',
         'claude-3-5-sonnet-20240620',
-        'claude-3-5-haiku-20241022'
+        'claude-3-5-haiku-20241022',
+        'claude-sonnet-4-20250514',
+        'claude-opus-4-20250514'
       ].freeze
       
       # Gemini vision-capable models (all Gemini models support vision)
