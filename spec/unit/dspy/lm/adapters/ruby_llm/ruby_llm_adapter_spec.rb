@@ -214,6 +214,54 @@ RSpec.describe DSPy::RubyLLM::LM::Adapters::RubyLLMAdapter do
         expect(response.content).to eq('')
       end
     end
+
+    context 'with OpenAI file inputs' do
+      let(:file_input) do
+        DSPy::FileInput.new(
+          data: 'xlsx-bytes'.bytes,
+          content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: 'metrics.xlsx'
+        )
+      end
+      let(:messages) do
+        [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Extract revenue metrics.' },
+              { type: 'file', file: file_input }
+            ]
+          }
+        ]
+      end
+
+      it 'extracts file content as RubyLLM raw Responses content' do
+        content, attachments = adapter.send(:prepare_message_content, messages)
+        text_type = defined?(::RubyLLM::Protocols::Responses) ? 'input_text' : 'text'
+        file_part = defined?(::RubyLLM::Protocols::Responses) ? file_input.to_openai_responses_input_file : file_input.to_openai_chat_file_part
+
+        expect(attachments).to be_empty
+        expect(content).to be_a(::RubyLLM::Content::Raw)
+        expect(content.value).to eq([
+          { type: text_type, text: 'Extract revenue metrics.' },
+          file_part
+        ])
+      end
+
+      it 'sends raw content directly to RubyLLM ask' do
+        expect(mock_chat).to receive(:ask).with(instance_of(::RubyLLM::Content::Raw)).and_return(mock_message)
+
+        adapter.chat(messages: messages)
+      end
+
+      it 'rejects file input for non-OpenAI providers' do
+        anthropic_adapter = described_class.new(model: 'claude-sonnet-4-5', api_key: api_key, provider: 'anthropic')
+
+        expect {
+          anthropic_adapter.chat(messages: messages)
+        }.to raise_error(DSPy::LM::IncompatibleDocumentFeatureError, /OpenAI via RubyLLM/)
+      end
+    end
   end
 
   describe 'error handling' do

@@ -162,14 +162,20 @@ module DSPy
       end
 
       document_inputs = extract_document_inputs(input_values)
+      file_inputs = extract_file_inputs(input_values)
 
-      if document_inputs.empty?
+      if document_inputs.empty? && file_inputs.empty?
         user_prompt = prompt.render_user_prompt(input_values)
         messages << Message.new(
           role: Message::Role::User,
           content: user_prompt
         )
-      else
+      elsif document_inputs.any?
+        if file_inputs.any?
+          raise DSPy::LM::IncompatibleDocumentFeatureError,
+                "Predict does not support mixing DSPy::Document and DSPy::FileInput inputs in this release."
+        end
+
         validate_document_predict_support!(input_values, document_inputs)
 
         placeholder_inputs = input_values.transform_values do |value|
@@ -180,6 +186,23 @@ module DSPy
         content_array = [
           { type: 'text', text: user_prompt },
           { type: 'document', document: document_inputs.first.last }
+        ]
+
+        messages << Message.new(
+          role: Message::Role::User,
+          content: content_array
+        )
+      else
+        validate_file_predict_support!(input_values, file_inputs)
+
+        placeholder_inputs = input_values.transform_values do |value|
+          value.is_a?(DSPy::FileInput) ? "[attached file: #{value.filename}]" : value
+        end
+
+        user_prompt = prompt.render_user_prompt(placeholder_inputs)
+        content_array = [
+          { type: 'text', text: user_prompt },
+          { type: 'file', file: file_inputs.first.last }
         ]
 
         messages << Message.new(
@@ -202,6 +225,17 @@ module DSPy
       end
     end
 
+    def extract_file_inputs(input_values)
+      input_values.each_with_object([]) do |(key, value), inputs|
+        if value.is_a?(DSPy::FileInput)
+          inputs << [key, value]
+        elsif nested_file_input?(value)
+          raise DSPy::LM::IncompatibleDocumentFeatureError,
+                "Only one top-level DSPy::FileInput input is currently supported in Predict."
+        end
+      end
+    end
+
     def nested_document_input?(value)
       case value
       when T::Struct
@@ -212,6 +246,19 @@ module DSPy
         value.values.any? { |item| nested_document_input?(item) }
       else
         value.is_a?(DSPy::Document)
+      end
+    end
+
+    def nested_file_input?(value)
+      case value
+      when T::Struct
+        value.class.props.any? { |name, _| nested_file_input?(value.public_send(name)) }
+      when Array
+        value.any? { |item| nested_file_input?(item) }
+      when Hash
+        value.values.any? { |item| nested_file_input?(item) }
+      else
+        value.is_a?(DSPy::FileInput)
       end
     end
 
@@ -231,6 +278,23 @@ module DSPy
 
       raise DSPy::LM::IncompatibleDocumentFeatureError,
             "Document inputs are currently supported only for Anthropic models and Anthropic via RubyLLM."
+    end
+
+    def validate_file_predict_support!(input_values, file_inputs)
+      if file_inputs.length > 1
+        raise DSPy::LM::IncompatibleDocumentFeatureError,
+              "Only one top-level DSPy::FileInput input is currently supported in Predict."
+      end
+
+      if input_values.values.any? { |value| value.is_a?(DSPy::Image) || value.is_a?(DSPy::Document) }
+        raise DSPy::LM::IncompatibleDocumentFeatureError,
+              "Predict does not support mixing DSPy::FileInput with DSPy::Document or DSPy::Image inputs in this release."
+      end
+
+      return if adapter.class.name.include?('RubyLLMAdapter') && adapter.provider == 'openai'
+
+      raise DSPy::LM::IncompatibleDocumentFeatureError,
+            "File inputs are currently supported only for OpenAI via RubyLLM in this spike."
     end
 
     def will_use_structured_outputs?(signature_class, data_format: nil)

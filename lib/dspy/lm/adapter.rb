@@ -65,8 +65,15 @@ module DSPy
         end
       end
 
+      def contains_files?(messages)
+        messages.any? do |msg|
+          content = msg[:content] || msg.content
+          content.is_a?(Array) && content.any? { |item| item[:type] == 'file' }
+        end
+      end
+
       def contains_media?(messages)
-        contains_images?(messages) || contains_documents?(messages)
+        contains_images?(messages) || contains_documents?(messages) || contains_files?(messages)
       end
 
       # Format multimodal messages for a specific provider

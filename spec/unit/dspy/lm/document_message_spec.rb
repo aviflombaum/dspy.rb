@@ -45,5 +45,24 @@ RSpec.describe 'Document Message Support' do
         { type: 'document', document: doc }
       ])
     end
+
+    it 'builds a multimodal message with a file input' do
+      builder = described_class.new
+      file = DSPy::FileInput.new(
+        data: 'xlsx-bytes'.bytes,
+        content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        filename: 'metrics.xlsx'
+      )
+
+      builder.user_with_file('Extract metrics from this workbook.', file)
+
+      messages = builder.messages
+      expect(messages.size).to eq(1)
+      expect(messages[0].multimodal?).to be true
+      expect(messages[0].content).to eq([
+        { type: 'text', text: 'Extract metrics from this workbook.' },
+        { type: 'file', file: file }
+      ])
+    end
   end
 end

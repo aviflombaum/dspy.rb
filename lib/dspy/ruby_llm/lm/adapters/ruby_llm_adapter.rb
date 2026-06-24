@@ -47,6 +47,7 @@ module DSPy
             normalized_messages = normalize_messages(messages)
 
             validate_document_support!(normalized_messages)
+            validate_file_support!(normalized_messages)
 
             # Validate vision support if images are present
             if contains_images?(normalized_messages)
@@ -240,6 +241,7 @@ module DSPy
 
             if content.is_a?(Array)
               text_parts = []
+              files = []
               content.each do |item|
                 case item[:type]
                 when 'text'
@@ -257,12 +259,47 @@ module DSPy
                 when 'document'
                   document = item[:document]
                   attachments << document.to_ruby_llm_attachment if document
+                when 'file'
+                  file = item[:file]
+                  files << file if file
                 end
               end
+
+              if files.any?
+                return [build_openai_raw_file_content(text_parts, files), []]
+              end
+
               content = text_parts.join("\n")
             end
 
             [content.to_s, attachments]
+          end
+
+          def build_openai_raw_file_content(text_parts, files)
+            parts = text_parts.filter_map do |text|
+              next if text.to_s.empty?
+
+              { type: openai_raw_text_type, text: text.to_s }
+            end
+            parts.concat(files.map { |file| openai_raw_file_part(file) })
+
+            ::RubyLLM::Content::Raw.new(parts)
+          end
+
+          def openai_raw_text_type
+            ruby_llm_responses_protocol? ? 'input_text' : 'text'
+          end
+
+          def openai_raw_file_part(file)
+            if ruby_llm_responses_protocol?
+              file.to_openai_responses_input_file
+            else
+              file.to_openai_chat_file_part
+            end
+          end
+
+          def ruby_llm_responses_protocol?
+            defined?(::RubyLLM::Protocols::Responses)
           end
 
           def validate_document_support!(messages)
@@ -271,6 +308,24 @@ module DSPy
 
             raise DSPy::LM::IncompatibleDocumentFeatureError,
                   "RubyLLM document inputs are currently supported only when the underlying provider is Anthropic."
+          end
+
+          def validate_file_support!(messages)
+            return unless contains_files?(messages)
+
+            if provider == 'openai' && !contains_images?(messages) && !contains_documents?(messages)
+              messages.each do |message|
+                next unless message[:content].is_a?(Array)
+
+                message[:content].each do |item|
+                  item[:file]&.validate_for_provider!(provider) if item[:type] == 'file'
+                end
+              end
+              return
+            end
+
+            raise DSPy::LM::IncompatibleDocumentFeatureError,
+                  "RubyLLM file inputs are currently supported only for OpenAI via RubyLLM, without mixed images or documents."
           end
 
           def map_response(ruby_llm_response)
