@@ -152,7 +152,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '2342'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -458,7 +458,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '1709'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -731,7 +731,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '2544'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -1022,7 +1022,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '1388'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -1336,7 +1336,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '2420'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:

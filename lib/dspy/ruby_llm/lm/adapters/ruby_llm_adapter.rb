@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'base64'
+require 'stringio'
 require 'uri'
 require 'ruby_llm'
 require 'dspy/lm/adapter'
@@ -11,6 +13,18 @@ module DSPy
       module Adapters
         class RubyLLMAdapter < DSPy::LM::Adapter
           attr_reader :provider
+
+          class InlineFileAttachment < StringIO
+            attr_reader :path
+
+            def initialize(content, path:)
+              super(content)
+              @path = path
+              binmode
+            end
+          end
+
+          private_constant :InlineFileAttachment
 
           # Options that require a scoped context instead of global RubyLLM config
           SCOPED_OPTIONS = %i[base_url timeout max_retries].freeze
@@ -47,6 +61,7 @@ module DSPy
             normalized_messages = normalize_messages(messages)
 
             validate_document_support!(normalized_messages)
+            validate_file_support!(normalized_messages, streaming: block_given?)
 
             # Validate vision support if images are present
             if contains_images?(normalized_messages)
@@ -196,7 +211,10 @@ module DSPy
 
                 # Add message with appropriate role
                 if attachments.any?
-                  chat_instance.add_message(role: msg[:role].to_sym, content: content, attachments: attachments)
+                  chat_instance.add_message(
+                    role: msg[:role].to_sym,
+                    content: ::RubyLLM::Content.new(content, attachments)
+                  )
                 else
                   chat_instance.add_message(role: msg[:role].to_sym, content: content)
                 end
@@ -257,8 +275,12 @@ module DSPy
                 when 'document'
                   document = item[:document]
                   attachments << document.to_ruby_llm_attachment if document
+                when 'file'
+                  file = item[:file]
+                  attachments << ruby_llm_attachment_for(file) if file
                 end
               end
+
               content = text_parts.join("\n")
             end
 
@@ -271,6 +293,43 @@ module DSPy
 
             raise DSPy::LM::IncompatibleDocumentFeatureError,
                   "RubyLLM document inputs are currently supported only when the underlying provider is Anthropic."
+          end
+
+          def validate_file_support!(messages, streaming:)
+            return unless contains_files?(messages)
+
+            if streaming
+              raise DSPy::LM::IncompatibleFileInputFeatureError,
+                    "DSPy::FileInput does not support streaming responses yet. Call without a streaming block."
+            end
+
+            if provider == 'openai' && !contains_images?(messages) && !contains_documents?(messages)
+              validate_ruby_llm_native_file_input_support!
+
+              each_file_input(messages) { |file| file.validate_for_provider!(provider) }
+              return
+            end
+
+            raise DSPy::LM::IncompatibleFileInputFeatureError,
+                  "RubyLLM file inputs are currently supported only for OpenAI via RubyLLM, without mixed images or documents."
+          end
+
+          def validate_ruby_llm_native_file_input_support!
+            return if defined?(::RubyLLM::Protocols::Responses::InputFiles)
+
+            raise DSPy::LM::IncompatibleFileInputFeatureError,
+                  "DSPy::FileInput via RubyLLM requires RubyLLM Responses native file input support. " \
+                  "Use a RubyLLM version or local checkout that defines RubyLLM::Protocols::Responses::InputFiles."
+          end
+
+          def ruby_llm_attachment_for(file)
+            return file.path if file.path
+            return ::RubyLLM::Attachment.new(file.url, filename: file.filename_with_extension) if file.url
+
+            InlineFileAttachment.new(
+              Base64.decode64(file.to_base64),
+              path: file.filename_with_extension
+            )
           end
 
           def map_response(ruby_llm_response)

@@ -82,6 +82,20 @@ module DSPy
         )
         self
       end
+
+      sig { params(text: String, file: DSPy::FileInput).returns(MessageBuilder) }
+      def user_with_file(text, file)
+        content_array = [
+          { type: 'text', text: text },
+          { type: 'file', file: file }
+        ]
+
+        @messages << Message.new(
+          role: Message::Role::User,
+          content: content_array
+        )
+        self
+      end
       
       # For backward compatibility, allow conversion to hash array
       sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }

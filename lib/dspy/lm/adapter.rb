@@ -65,8 +65,28 @@ module DSPy
         end
       end
 
+      def contains_files?(messages)
+        messages.any? do |msg|
+          content = msg[:content] || msg.content
+          content.is_a?(Array) && content.any? { |item| item[:type] == 'file' }
+        end
+      end
+
+      def each_file_input(messages)
+        return enum_for(:each_file_input, messages) unless block_given?
+
+        messages.each do |message|
+          content = message[:content] || message.content
+          next unless content.is_a?(Array)
+
+          content.each do |item|
+            yield item[:file] if item[:type] == 'file' && item[:file]
+          end
+        end
+      end
+
       def contains_media?(messages)
-        contains_images?(messages) || contains_documents?(messages)
+        contains_images?(messages) || contains_documents?(messages) || contains_files?(messages)
       end
 
       # Format multimodal messages for a specific provider
@@ -84,6 +104,8 @@ module DSPy
                 format_image_for_provider(item[:image], provider_name)
               when 'document'
                 format_document_for_provider(item[:document], provider_name)
+              when 'file'
+                format_file_for_provider(item[:file], provider_name)
               else
                 item
               end
@@ -118,6 +140,11 @@ module DSPy
         else
           { type: 'document', document: document }
         end
+      end
+
+      def format_file_for_provider(_file, provider_name)
+        raise DSPy::LM::IncompatibleFileInputFeatureError,
+              "DSPy::FileInput is not supported by the #{provider_name} adapter."
       end
     end
   end

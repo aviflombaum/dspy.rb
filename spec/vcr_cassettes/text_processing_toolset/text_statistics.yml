@@ -159,7 +159,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '3425'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -343,7 +343,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '1719'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -588,7 +588,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '5983'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -782,7 +782,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '1704'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -1039,7 +1039,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '3707'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -1243,7 +1243,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '1800'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -1510,7 +1510,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '3874'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -1730,7 +1730,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '1614'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:
@@ -2010,7 +2010,7 @@ http_interactions:
       Openai-Processing-Ms:
       - '3638'
       Openai-Project:
-      - proj_n52OL5vlzVaXGnYDaGWmVX5F
+      - <OPENAI_PROJECT>
       Openai-Version:
       - '2020-10-01'
       X-Envoy-Upstream-Service-Time:

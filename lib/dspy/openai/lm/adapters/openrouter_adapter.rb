@@ -66,6 +66,10 @@ module DSPy
             # For now, we rely on whatever was passed to the constructor
             @structured_outputs_enabled
           end
+
+          def supports_responses_file_inputs?
+            false
+          end
         end
       end
     end

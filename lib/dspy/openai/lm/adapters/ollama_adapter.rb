@@ -71,6 +71,10 @@ module DSPy
             # but may not support full OpenAI structured output spec
             true
           end
+
+          def supports_responses_file_inputs?
+            false
+          end
         end
       end
     end

@@ -445,11 +445,53 @@ RSpec.describe DSPy::LM do
           question: 'What is in the report?'
         })
 
-        expect(messages[1].content[0]).to eq(
-          type: 'text',
-          text: 'prompt={document: "[attached pdf document]", question: "What is in the report?"}'
-        )
+        expect(messages[1].content[0][:type]).to eq('text')
+        expect(messages[1].content[0][:text]).to include('[attached pdf document]')
+        expect(messages[1].content[0][:text]).to include('What is in the report?')
         expect(messages[1].content[1]).to eq(type: 'document', document: doc)
+      end
+
+      it 'preserves a file field placeholder and attaches the file input' do
+        file = DSPy::FileInput.new(
+          data: 'xlsx-bytes'.bytes,
+          content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: 'metrics.xlsx'
+        )
+        adapter_class = stub_const('DSPy::RubyLLM::LM::Adapters::RubyLLMAdapterDouble', Class.new do
+          def provider = 'openai'
+        end)
+        allow(lm).to receive(:adapter).and_return(adapter_class.new)
+        allow(inference_module.prompt).to receive(:render_user_prompt) do |inputs|
+          "prompt=#{inputs.inspect}"
+        end
+
+        messages = lm.send(:build_messages, inference_module, {
+          workbook: file,
+          question: 'What revenue metrics are present?'
+        })
+
+        expect(messages[1].content[0][:type]).to eq('text')
+        expect(messages[1].content[0][:text]).to include('[attached file: metrics.xlsx]')
+        expect(messages[1].content[0][:text]).to include('What revenue metrics are present?')
+        expect(messages[1].content[1]).to eq(type: 'file', file: file)
+      end
+
+      it 'uses the inferred file extension in file field placeholders' do
+        file = DSPy::FileInput.new(
+          url: 'https://example.com/download/123',
+          content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        allow(inference_module.prompt).to receive(:render_user_prompt) do |inputs|
+          "prompt=#{inputs.inspect}"
+        end
+
+        messages = lm.send(:build_messages, inference_module, {
+          workbook: file,
+          question: 'What revenue metrics are present?'
+        })
+
+        expect(messages[1].content[0][:text]).to include('[attached file: 123.xlsx]')
+        expect(messages[1].content[1]).to eq(type: 'file', file: file)
       end
 
       it 'raises for multiple top-level documents' do

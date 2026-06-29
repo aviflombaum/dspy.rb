@@ -1,5 +1,9 @@
 source 'https://rubygems.org'
 
+if (ruby_llm_path = ENV['DSPY_RUBY_LLM_PATH']) && !ruby_llm_path.empty?
+  gem 'ruby_llm', path: ruby_llm_path
+end
+
 gemspec name: "dspy"
 gemspec name: "sorbet-toon"
 

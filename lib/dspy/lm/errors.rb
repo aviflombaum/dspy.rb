@@ -34,5 +34,12 @@ module DSPy
         super(message)
       end
     end
+
+    # Raised when file input features are incompatible with the target provider
+    class IncompatibleFileInputFeatureError < AdapterError
+      def initialize(message)
+        super(message)
+      end
+    end
   end
 end

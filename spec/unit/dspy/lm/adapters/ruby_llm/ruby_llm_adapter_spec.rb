@@ -214,6 +214,114 @@ RSpec.describe DSPy::RubyLLM::LM::Adapters::RubyLLMAdapter do
         expect(response.content).to eq('')
       end
     end
+
+    context 'with OpenAI file inputs' do
+      def stub_ruby_llm_file_input_support
+        stub_const('RubyLLM::Protocols', Module.new) unless defined?(RubyLLM::Protocols)
+        stub_const('RubyLLM::Protocols::Responses', Module.new) unless defined?(RubyLLM::Protocols::Responses)
+        stub_const('RubyLLM::Protocols::Responses::InputFiles', Module.new)
+      end
+
+      let(:file_input) do
+        DSPy::FileInput.new(
+          data: 'xlsx-bytes'.bytes,
+          content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: 'metrics.xlsx'
+        )
+      end
+      let(:messages) do
+        [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Extract revenue metrics.' },
+              { type: 'file', file: file_input }
+            ]
+          }
+        ]
+      end
+
+      it 'extracts file content as a RubyLLM attachment' do
+        stub_ruby_llm_file_input_support
+        content, attachments = adapter.send(:prepare_message_content, messages)
+
+        expect(content).to eq('Extract revenue metrics.')
+        expect(attachments.size).to eq(1)
+        expect(attachments.first).to be_a(StringIO)
+        expect(attachments.first.path).to eq('metrics.xlsx')
+        expect(attachments.first.read).to eq('xlsx-bytes')
+      end
+
+      it 'preserves URL filename metadata for RubyLLM attachments' do
+        stub_ruby_llm_file_input_support
+        url_file = DSPy::FileInput.new(
+          url: 'https://example.com/download/123',
+          content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: 'metrics.xlsx'
+        )
+        url_messages = [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Extract revenue metrics.' },
+              { type: 'file', file: url_file }
+            ]
+          }
+        ]
+
+        content, attachments = adapter.send(:prepare_message_content, url_messages)
+
+        expect(content).to eq('Extract revenue metrics.')
+        expect(attachments.size).to eq(1)
+        expect(attachments.first).to be_a(RubyLLM::Attachment)
+        expect(attachments.first.source.to_s).to eq('https://example.com/download/123')
+        expect(attachments.first.filename).to eq('metrics.xlsx')
+        expect(attachments.first.mime_type).to eq('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      end
+
+      it 'sends normal content and attachments to RubyLLM ask' do
+        stub_ruby_llm_file_input_support
+        attachment_matcher = satisfy do |attachment|
+          attachment.is_a?(StringIO) &&
+            attachment.path == 'metrics.xlsx' &&
+            attachment.read == 'xlsx-bytes'
+        end
+
+        expect(mock_chat).to receive(:ask)
+          .with('Extract revenue metrics.', with: [attachment_matcher])
+          .and_return(mock_message)
+
+        adapter.chat(messages: messages)
+      end
+
+      it 'requires RubyLLM native Responses file input support' do
+        expect {
+          adapter.chat(messages: messages)
+        }.to raise_error(
+          DSPy::LM::IncompatibleFileInputFeatureError,
+          /requires RubyLLM Responses native file input support/
+        )
+      end
+
+      it 'rejects streaming with file inputs for now' do
+        stub_ruby_llm_file_input_support
+
+        expect {
+          adapter.chat(messages: messages) { |_| }
+        }.to raise_error(
+          DSPy::LM::IncompatibleFileInputFeatureError,
+          /does not support streaming/
+        )
+      end
+
+      it 'rejects file input for non-OpenAI providers' do
+        anthropic_adapter = described_class.new(model: 'claude-sonnet-4-5', api_key: api_key, provider: 'anthropic')
+
+        expect {
+          anthropic_adapter.chat(messages: messages)
+        }.to raise_error(DSPy::LM::IncompatibleFileInputFeatureError, /OpenAI via RubyLLM/)
+      end
+    end
   end
 
   describe 'error handling' do

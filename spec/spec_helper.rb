@@ -62,6 +62,13 @@ VCR.configure do |config|
     end
   end
 
+  # Project IDs in OpenAI responses
+  config.filter_sensitive_data('<OPENAI_PROJECT>') do |interaction|
+    if interaction.response.headers['Openai-Project']
+      interaction.response.headers['Openai-Project'].first
+    end
+  end
+
   # Organization IDs in Anthropic responses
   config.filter_sensitive_data('<ANTHROPIC_ORGANIZATION>') do |interaction|
     if interaction.response.headers['Anthropic-Organization']
@@ -90,6 +97,10 @@ VCR.configure do |config|
     # Redact organization IDs (backup approach)
     if interaction.response.headers['Openai-Organization']
       interaction.response.headers['Openai-Organization'] = ['<OPENAI_ORGANIZATION>']
+    end
+
+    if interaction.response.headers['Openai-Project']
+      interaction.response.headers['Openai-Project'] = ['<OPENAI_PROJECT>']
     end
 
     if interaction.response.headers['Anthropic-Organization']
